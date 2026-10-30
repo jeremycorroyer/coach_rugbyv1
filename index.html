@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chrono-Rugby Deleplace</title>
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="./manifest.json">
+    <title>Chrono-Rugby Deleplace & Aide à la Décision</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Bibliothèques pour l'export PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
@@ -17,11 +15,23 @@
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none">
 
-    <!-- En-tête / Timer, Équipe & Export -->
+    <!-- En-tête / Score, Timer, Équipe & Export -->
     <header class="bg-slate-800 border-b border-slate-700 px-4 py-2 flex flex-wrap justify-between items-center sticky top-0 z-20 gap-2 shadow-md">
+        
+        <!-- Bloc Score & Équipes -->
         <div class="flex items-center gap-3">
-            <span class="text-lg font-black tracking-wider text-amber-500">🏉 DELEPLACE CHRONO</span>
-            
+            <div class="bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800 flex items-center gap-3">
+                <div class="text-center">
+                    <span class="text-[10px] uppercase text-amber-400 font-bold block">Mon Équipe</span>
+                    <span id="score-my" class="text-xl font-black text-amber-400">0</span>
+                </div>
+                <span class="text-slate-600 font-bold">-</span>
+                <div class="text-center">
+                    <span class="text-[10px] uppercase text-sky-400 font-bold block">Adversaire</span>
+                    <span id="score-opp" class="text-xl font-black text-sky-400">0</span>
+                </div>
+            </div>
+
             <!-- Contrôle Chrono -->
             <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
                 <span id="timer" class="px-2 font-mono text-amber-400 text-sm font-bold">00:00</span>
@@ -29,44 +39,75 @@
             </div>
         </div>
 
-        <!-- Sélecteur d'équipe -->
+        <!-- Sélecteur d'équipe pour la saisie -->
         <div class="flex items-center gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800">
-            <span class="text-xs text-slate-400 font-medium pl-1">Possession :</span>
+            <span class="text-xs text-slate-400 font-medium pl-1">Tracé :</span>
             <button id="btn-team-my" onclick="setTeam('my')" class="bg-amber-600 text-white text-xs px-3 py-1 rounded-md font-bold transition">Mon Équipe (—)</button>
             <button id="btn-team-opp" onclick="setTeam('opp')" class="bg-slate-800 text-slate-400 text-xs px-3 py-1 rounded-md font-bold transition">Adversaire (- -)</button>
         </div>
 
-        <!-- Action Export & Reset -->
+        <!-- Actions -->
         <div class="flex gap-2">
-            <button onclick="exportPDF()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded font-bold transition flex items-center gap-1">📄 Export PDF</button>
-
-            <button onclick="undo()" class="bg-amber-700 hover:bg-amber-600 text-white text-xs px-3 py-1.5 rounded font-bold transition flex items-center gap-1">🛠️ Correctif</button>
-
+            <button onclick="exportPDF()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded font-bold transition">📄 PDF</button>
+            <button onclick="undo()" class="bg-amber-700 hover:bg-amber-600 text-white text-xs px-3 py-1.5 rounded font-bold transition">🛠️ Correctif</button>
             <button onclick="resetAll()" class="bg-rose-900 hover:bg-rose-800 text-xs px-3 py-1.5 rounded font-bold transition">💥 RAZ</button>
         </div>
     </header>
 
     <div id="export-container" class="flex-1 flex flex-col lg:flex-row gap-2 p-2 max-w-7xl mx-auto w-full bg-slate-900">
 
-        <!-- Colonne Gauche: Graphique Chronophotographique -->
-        <div class="flex-1 bg-slate-800 rounded-xl p-2 border border-slate-700 flex flex-col shadow-lg">
-            <div class="flex justify-between items-center mb-1 px-1">
-                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Chronophotographie du jeu (Séquences)</span>
-                <div class="flex gap-3 text-xs">
-                    <span class="text-amber-400 font-semibold">● Mon Équipe</span>
-                    <span class="text-sky-400 font-semibold">◌ Adversaire</span>
-                    <span id="seq-count" class="font-mono text-slate-300">0 action(s)</span>
+        <!-- Colonne Gauche: Graphique Chronophotographique + Aide à la décision -->
+        <div class="flex-1 flex flex-col gap-2">
+            
+            <!-- Graphique -->
+            <div class="bg-slate-800 rounded-xl p-2 border border-slate-700 flex flex-col shadow-lg flex-1">
+                <div class="flex justify-between items-center mb-1 px-1">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Chronophotographie du jeu (Séquences)</span>
+                    <div class="flex gap-3 text-xs">
+                        <span class="text-amber-400 font-semibold">● Mon Équipe</span>
+                        <span class="text-sky-400 font-semibold">◌ Adversaire</span>
+                        <span id="seq-count" class="font-mono text-slate-300">0 action(s)</span>
+                    </div>
+                </div>
+                
+                <div class="relative w-full flex-1 min-h-[320px] bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
+                    <canvas id="chronoCanvas" class="w-full h-full block"></canvas>
                 </div>
             </div>
-            
-            <!-- Zone Canvas -->
-            <div class="relative w-full flex-1 min-h-[350px] bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
-                <canvas id="chronoCanvas" class="w-full h-full block"></canvas>
+
+            <!-- MODULE AIDE À LA DÉCISION / ANALYSE QUALITATIVE -->
+            <div class="bg-slate-800 rounded-xl p-3 border border-amber-500/30 shadow-lg">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        💡 Aide à la Décision (Analyse Tactique Deleplace)
+                    </h3>
+                    <span class="text-[10px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded border border-slate-700">En direct</span>
+                </div>
+                <div id="tactical-feedback" class="text-xs space-y-2 text-slate-300">
+                    <p class="italic text-slate-500">Saisissez au moins 4 à 5 séquences de jeu pour générer le diagnostic qualitatif et les préconisations tactiques...</p>
+                </div>
             </div>
+
         </div>
 
-        <!-- Colonne Droite: Boutons de Saisie & Faits de Jeu -->
+        <!-- Colonne Droite: Score, Événements & Grille -->
         <div class="w-full lg:w-96 flex flex-col gap-2">
+
+            <!-- Gestion du Score en direct -->
+            <div class="bg-slate-800 rounded-xl p-3 border border-slate-700 shadow-lg">
+                <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Marqueur de Score (Équipe active)</span>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <button onclick="addScore(5)" class="bg-emerald-950 hover:bg-emerald-900 border border-emerald-700/50 p-2 rounded-lg text-center">
+                        <span class="block text-xs font-bold text-emerald-300">+5 Essai</span>
+                    </button>
+                    <button onclick="addScore(2)" class="bg-blue-950 hover:bg-blue-900 border border-blue-700/50 p-2 rounded-lg text-center">
+                        <span class="block text-xs font-bold text-blue-300">+2 Transfo</span>
+                    </button>
+                    <button onclick="addScore(3)" class="bg-indigo-950 hover:bg-indigo-900 border border-indigo-700/50 p-2 rounded-lg text-center">
+                        <span class="block text-xs font-bold text-indigo-300">+3 Pénalité</span>
+                    </button>
+                </div>
+            </div>
 
             <!-- Faits de Jeu / Compteurs rapides -->
             <div class="bg-slate-800 rounded-xl p-3 border border-slate-700 shadow-lg">
@@ -152,10 +193,11 @@
 
         let history = [];
         let stats = { grattes: 0, penalites: 0, fautes: 0, franchissements: 0 };
+        let scores = { my: 0, opp: 0 };
         let timerSeconds = 0;
         let timerRunning = false;
         let timerInterval = null;
-        let currentTeam = 'my'; // 'my' ou 'opp'
+        let currentTeam = 'my';
 
         const canvas = document.getElementById('chronoCanvas');
         const ctx = canvas.getContext('2d');
@@ -167,7 +209,6 @@
         }
         window.addEventListener('resize', resizeCanvas);
 
-        // Gestion du Chrono
         function toggleTimer() {
             const btn = document.getElementById('timer-btn');
             if (timerRunning) {
@@ -188,7 +229,6 @@
             }
         }
 
-        // Sélecteur d'équipe
         function setTeam(team) {
             currentTeam = team;
             const myBtn = document.getElementById('btn-team-my');
@@ -202,39 +242,127 @@
             }
         }
 
+        function addScore(points) {
+            scores[currentTeam] += points;
+            document.getElementById('score-my').innerText = scores.my;
+            document.getElementById('score-opp').innerText = scores.opp;
+            if (navigator.vibrate) navigator.vibrate(50);
+            analyzeGame();
+        }
+
         function recordAction(catIndex, label) {
             history.push({ catIndex, label, team: currentTeam, time: timerSeconds });
             document.getElementById('seq-count').innerText = `${history.length} action(s)`;
             if (navigator.vibrate) navigator.vibrate(30);
             drawGrid();
+            analyzeGame();
         }
 
         function addStat(type) {
             stats[type]++;
             document.getElementById(`stat-${type}`).innerText = stats[type];
             if (navigator.vibrate) navigator.vibrate(40);
+            analyzeGame();
         }
 
-        // Bouton Correctif / Annuler
         function undo() {
             if (history.length > 0) {
                 history.pop();
                 document.getElementById('seq-count').innerText = `${history.length} action(s)`;
                 drawGrid();
+                analyzeGame();
             }
         }
 
         function resetAll() {
-            if (confirm("Réinitialiser toute la séquence ?")) {
+            if (confirm("Réinitialiser toute la session (scores, chronos, actions) ?")) {
                 history = [];
                 stats = { grattes: 0, penalites: 0, fautes: 0, franchissements: 0 };
+                scores = { my: 0, opp: 0 };
                 Object.keys(stats).forEach(k => document.getElementById(`stat-${k}`).innerText = 0);
+                document.getElementById('score-my').innerText = 0;
+                document.getElementById('score-opp').innerText = 0;
                 document.getElementById('seq-count').innerText = "0 action(s)";
                 timerSeconds = 0;
                 document.getElementById('timer').innerText = "00:00";
                 if (timerRunning) toggleTimer();
                 drawGrid();
+                analyzeGame();
             }
+        }
+
+        // MOTEUR D'ANALYSE QUALITATIVE ET AIDE À LA DÉCISION
+        function analyzeGame() {
+            const container = document.getElementById('tactical-feedback');
+            if (history.length < 4) {
+                container.innerHTML = `<p class="italic text-slate-500">Saisissez au moins 4 à 5 séquences de jeu pour générer le diagnostic qualitatif et les préconisations tactiques...</p>`;
+                return;
+            }
+
+            const myActions = history.filter(a => a.team === 'my');
+            const oppActions = history.filter(a => a.team === 'opp');
+
+            // Categorisation des actions pour "Mon Équipe"
+            const myFixations = myActions.filter(a => a.catIndex >= 4 && a.catIndex <= 7).length; // Ruck/Maul
+            const myMouvement = myActions.filter(a => a.catIndex >= 8 && a.catIndex <= 10).length; // Groupé, Déployé, Pied
+            const myLongs = myActions.filter(a => a.catIndex === 4 || a.catIndex === 5).length; // Temps de fixation longs
+            const myCourts = myActions.filter(a => a.catIndex === 6 || a.catIndex === 7).length; // Temps de fixation courts
+            const myPied = myActions.filter(a => a.catIndex === 10).length;
+            const myContres = myActions.filter(a => a.catIndex >= 11).length;
+
+            // Diagnostic qualitatif
+            let profileMsg = "";
+            let tacticalAdvice = "";
+
+            // 1. Analyse du rapport Fixation / Plein Mouvement
+            if (myFixations > myMouvement * 1.5) {
+                profileMsg += "🔴 <strong>Jeu sur-fixé / Stéréotypé :</strong> Votre équipe consomme beaucoup de joueurs dans les rucks/mauls sans trouver de continuité dans la largeur.";
+                tacticalAdvice += "👉 <strong>Consigne :</strong> Réduire le nombre de déblayeurs, éjecter plus rapidement (passer sur des temps de fixation courts) et alterner avec du jeu déployé direct pour déplacer le bloc défensif.";
+            } else if (myMouvement > myFixations * 1.5) {
+                profileMsg += "🟢 <strong>Jeu de vitesse & d'évitement :</strong> Forte continuité dynamique dans le plein mouvement.";
+                tacticalAdvice += "👉 <strong>Consigne :</strong> Conserver la vitesse de libération, mais veiller au soutien rapproché pour éviter le risque de ballon isolé/gratté en cas de repli défensif adverse rapide.";
+            } else {
+                profileMsg += "🟡 <strong>Équilibre Fixation / Mouvement :</strong> Bonne alternance entre fixation de la défense et distribution.";
+                tacticalAdvice += "👉 <strong>Consigne :</strong> Maintenir la pression en ciblant les zones de faiblesse autour des rucks après 2 temps de fixation courts.";
+            }
+
+            // 2. Analyse des temps de fixation (Longs vs Courts)
+            let tempoMsg = "";
+            if (myLongs > myCourts && myFixations > 0) {
+                tempoMsg = "⚠️ <strong>Temps de sortie lents :</strong> Majorité de rucks/mauls longs enregistrés. La défense adverse a le temps de se réorganiser.";
+            } else if (myCourts >= myLongs && myFixations > 0) {
+                tempoMsg = "⚡ <strong>Temps de sortie rapides :</strong> Très bonne vitesse d'éjection du ballon favorisant l'incertitude défensive.";
+            }
+
+            // 3. Comparaison avec l'Adversaire
+            let oppRatioMsg = "";
+            if (oppActions.length > myActions.length * 1.3) {
+                oppRatioMsg = "🛡️ <strong>Subie territoriale / Possession adverse :</strong> L'adversaire impose une majorité de séquences.";
+            } else if (myActions.length > oppActions.length * 1.3) {
+                oppRatioMsg = "🔥 <strong>Domination de l'initiative :</strong> Votre équipe contrôle la majorité des enchaînements du match.";
+            }
+
+            // 4. Intégration des faits de jeu
+            let statMsg = "";
+            if (stats.penalites >= 3) {
+                statMsg += " ⚠️ Discipline à recadrer (" + stats.penalites + " pénalités concédées).";
+            }
+            if (stats.grattes >= 3) {
+                statMsg += " 🏆 Excellent grattage dans les zones de contest (" + stats.grattes + " ballons récupérés).";
+            }
+
+            // Construction du rendu HTML
+            container.innerHTML = `
+                <div class="p-2 bg-slate-900/80 rounded border border-slate-700 space-y-1.5">
+                    <p class="text-amber-300 font-medium">${profileMsg}</p>
+                    ${tempoMsg ? `<p class="text-slate-300">${tempoMsg}</p>` : ''}
+                    ${oppRatioMsg ? `<p class="text-sky-300 font-medium">${oppRatioMsg}</p>` : ''}
+                    ${statMsg ? `<p class="text-emerald-400 font-medium">${statMsg}</p>` : ''}
+                    <div class="mt-2 pt-2 border-t border-slate-800 text-emerald-300 font-semibold">
+                        ${tacticalAdvice}
+                    </div>
+                </div>
+            `;
         }
 
         function drawGrid() {
@@ -250,7 +378,6 @@
 
             ctx.clearRect(0, 0, w, h);
 
-            // Quadrillage & Libellés
             categories.forEach((cat, idx) => {
                 const y = paddingTop + idx * rowHeight + rowHeight / 2;
 
@@ -269,7 +396,6 @@
                 ctx.fillText(cat, paddingLeft - 6, y);
             });
 
-            // Axe vertical
             ctx.beginPath();
             ctx.setLineDash([]);
             ctx.strokeStyle = '#475569';
@@ -280,7 +406,6 @@
 
             if (history.length === 0) return;
 
-            // Tracer la chronophotographie segment par segment
             const availableWidth = w - paddingLeft - 30;
             const stepX = history.length > 1 ? availableWidth / (history.length - 1) : 0;
 
@@ -298,10 +423,10 @@
                 ctx.lineWidth = 2;
 
                 if (pt2.team === 'my') {
-                    ctx.strokeStyle = '#f59e0b'; // Orange continu
+                    ctx.strokeStyle = '#f59e0b';
                     ctx.setLineDash([]);
                 } else {
-                    ctx.strokeStyle = '#38bdf8'; // Bleu pointillé
+                    ctx.strokeStyle = '#38bdf8';
                     ctx.setLineDash([4, 4]);
                 }
 
@@ -310,7 +435,6 @@
                 ctx.stroke();
             }
 
-            // Dessiner les points
             points.forEach((pt, idx) => {
                 ctx.beginPath();
                 ctx.setLineDash([]);
@@ -323,7 +447,6 @@
             });
         }
 
-        // Export PDF
         async function exportPDF() {
             const { jsPDF } = window.jspdf;
             const element = document.getElementById('export-container');
@@ -336,15 +459,20 @@
             const imgHeight = (canvasImage.height * imgWidth) / canvasImage.width;
 
             pdf.setFontSize(14);
-            pdf.text("Rapport Séquence Rugby - Grille Deleplace", 10, 12);
+            pdf.text(`Rapport Match & Diagnostic Tactique - Score: ${scores.my} / ${scores.opp}`, 10, 12);
             pdf.addImage(imgData, 'PNG', 10, 18, imgWidth, imgHeight);
-            pdf.save(`sequence_rugby_${new Date().toISOString().slice(0,10)}.pdf`);
+            pdf.save(`rapport_tactique_rugby_${scores.my}-${scores.opp}.pdf`);
         }
 
         window.onload = function() {
             resizeCanvas();
             drawGrid();
+            analyzeGame();
         };
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
+        }
     </script>
 </body>
 </html>
