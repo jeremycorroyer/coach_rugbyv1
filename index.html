@@ -7,37 +7,60 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Bibliothèques pour l'export PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        /* Touch feedback & prevent screen scroll on tapping grid buttons */
         button:active { transform: scale(0.96); }
         canvas { touch-action: none; }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans select-none">
 
-    <!-- En-tête / Timer & Score -->
-    <header class="bg-slate-800 border-b border-slate-700 px-4 py-2 flex justify-between items-center sticky top-0 z-20 shadow-md">
+    <!-- En-tête / Timer, Équipe & Export -->
+    <header class="bg-slate-800 border-b border-slate-700 px-4 py-2 flex flex-wrap justify-between items-center sticky top-0 z-20 gap-2 shadow-md">
         <div class="flex items-center gap-3">
             <span class="text-lg font-black tracking-wider text-amber-500">🏉 DELEPLACE CHRONO</span>
-            <span id="timer" class="bg-slate-950 px-3 py-1 rounded-md text-amber-400 font-mono text-sm border border-slate-800">00:00</span>
+            
+            <!-- Contrôle Chrono -->
+            <div class="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                <span id="timer" class="px-2 font-mono text-amber-400 text-sm font-bold">00:00</span>
+                <button id="timer-btn" onclick="toggleTimer()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2 py-1 rounded font-bold">Démarrer</button>
+            </div>
         </div>
+
+        <!-- Sélecteur d'équipe -->
+        <div class="flex items-center gap-2 bg-slate-950 p-1 rounded-lg border border-slate-800">
+            <span class="text-xs text-slate-400 font-medium pl-1">Possession :</span>
+            <button id="btn-team-my" onclick="setTeam('my')" class="bg-amber-600 text-white text-xs px-3 py-1 rounded-md font-bold transition">Mon Équipe (—)</button>
+            <button id="btn-team-opp" onclick="setTeam('opp')" class="bg-slate-800 text-slate-400 text-xs px-3 py-1 rounded-md font-bold transition">Adversaire (- -)</button>
+        </div>
+
+        <!-- Action Export & Reset -->
         <div class="flex gap-2">
-            <button onclick="undo()" class="bg-slate-700 hover:bg-slate-600 text-xs px-3 py-1.5 rounded font-bold transition">↩️ Annuler</button>
+            <button onclick="exportPDF()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-1.5 rounded font-bold transition flex items-center gap-1">📄 Export PDF</button>
+
+            <button onclick="undo()" class="bg-amber-700 hover:bg-amber-600 text-white text-xs px-3 py-1.5 rounded font-bold transition flex items-center gap-1">🛠️ Correctif</button>
+
             <button onclick="resetAll()" class="bg-rose-900 hover:bg-rose-800 text-xs px-3 py-1.5 rounded font-bold transition">💥 RAZ</button>
         </div>
     </header>
 
-    <div class="flex-1 flex flex-col lg:flex-row gap-2 p-2 max-w-7xl mx-auto w-full">
+    <div id="export-container" class="flex-1 flex flex-col lg:flex-row gap-2 p-2 max-w-7xl mx-auto w-full bg-slate-900">
 
         <!-- Colonne Gauche: Graphique Chronophotographique -->
         <div class="flex-1 bg-slate-800 rounded-xl p-2 border border-slate-700 flex flex-col shadow-lg">
             <div class="flex justify-between items-center mb-1 px-1">
                 <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Chronophotographie du jeu (Séquences)</span>
-                <span id="seq-count" class="text-xs font-mono text-amber-400">0 action(s) enregistrée(s)</span>
+                <div class="flex gap-3 text-xs">
+                    <span class="text-amber-400 font-semibold">● Mon Équipe</span>
+                    <span class="text-sky-400 font-semibold">◌ Adversaire</span>
+                    <span id="seq-count" class="font-mono text-slate-300">0 action(s)</span>
+                </div>
             </div>
             
             <!-- Zone Canvas -->
-            <div class="relative w-full flex-1 min-h-[300px] bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
+            <div class="relative w-full flex-1 min-h-[350px] bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
                 <canvas id="chronoCanvas" class="w-full h-full block"></canvas>
             </div>
         </div>
@@ -77,13 +100,13 @@
                     <span class="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">Phase Statique</span>
                     <div class="grid grid-cols-2 gap-1.5">
                         <button onclick="recordAction(0, 'Coup d\'envoi')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 text-xs py-2 px-1 rounded border border-indigo-800/50 font-medium">Coup d'envoi / Renvoi</button>
-                        <button onclick="recordAction(1, 'Pénalité/Coup franc')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 text-xs py-2 px-1 rounded border border-indigo-800/50 font-medium">Pénalité (statique)</button>
+                        <button onclick="recordAction(1, 'Pénalité')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 text-xs py-2 px-1 rounded border border-indigo-800/50 font-medium">Pénalité (statique)</button>
                         <button onclick="recordAction(2, 'Touche')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 text-xs py-2 px-1 rounded border border-indigo-800/50 font-medium">Touche</button>
                         <button onclick="recordAction(3, 'Mêlée')" class="bg-indigo-950 hover:bg-indigo-900 text-indigo-200 text-xs py-2 px-1 rounded border border-indigo-800/50 font-medium">Mêlée</button>
                     </div>
                 </div>
 
-                <!-- Phase de Fixation (Longue / Courte) -->
+                <!-- Phase de Fixation -->
                 <div class="space-y-1 mt-1">
                     <span class="text-[10px] uppercase font-bold text-amber-400 tracking-wider">Phase de Fixation</span>
                     <div class="grid grid-cols-2 gap-1.5">
@@ -94,7 +117,7 @@
                     </div>
                 </div>
 
-                <!-- Phase de Plein Mouvement -->
+                <!-- Plein Mouvement -->
                 <div class="space-y-1 mt-1">
                     <span class="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Plein Mouvement</span>
                     <div class="grid grid-cols-3 gap-1.5">
@@ -108,6 +131,220 @@
                 <div class="space-y-1 mt-1">
                     <span class="text-[10px] uppercase font-bold text-rose-400 tracking-wider">Contre-Attaque</span>
                     <div class="grid grid-cols-2 gap-1.5">
-                        <button onclick="recordAction(11, 'Contre Type 1')" class="bg-rose-950 hover:bg-rose-900 text-rose-200 text-xs py-2 px-1 rounded border border-rose-800/50 font-medium">Type 1 (Axe/Direct)</button>
-                        <button onclick="recordAction(12, 'Contre Type 2')" class="bg-rose-950 hover:bg-rose-900 text-rose-200 text-xs py-2 px-1 rounded border border-rose-800/50 font-medium">Type 2 (Large
-                        
+                        <button onclick="recordAction(11, 'Contre T1')" class="bg-rose-950 hover:bg-rose-900 text-rose-200 text-xs py-2 px-1 rounded border border-rose-800/50 font-medium">Type 1 (Axe/Direct)</button>
+                        <button onclick="recordAction(12, 'Contre T2')" class="bg-rose-950 hover:bg-rose-900 text-rose-200 text-xs py-2 px-1 rounded border border-rose-800/50 font-medium">Type 2 (Largeur)</button>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        const categories = [
+            "Coup d'envoi", "Pénalités", "Touches", "Mêlées",
+            "Ruck (Long)", "Maul (Long)", "Ruck (Court)", "Maul (Court)",
+            "Groupé", "Déployé", "Pied",
+            "Contre T1", "Contre T2"
+        ];
+
+        let history = [];
+        let stats = { grattes: 0, penalites: 0, fautes: 0, franchissements: 0 };
+        let timerSeconds = 0;
+        let timerRunning = false;
+        let timerInterval = null;
+        let currentTeam = 'my'; // 'my' ou 'opp'
+
+        const canvas = document.getElementById('chronoCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            drawGrid();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // Gestion du Chrono
+        function toggleTimer() {
+            const btn = document.getElementById('timer-btn');
+            if (timerRunning) {
+                clearInterval(timerInterval);
+                timerRunning = false;
+                btn.innerText = "Démarrer";
+                btn.className = "bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-2 py-1 rounded font-bold";
+            } else {
+                timerRunning = true;
+                btn.innerText = "Pause";
+                btn.className = "bg-amber-600 hover:bg-amber-500 text-white text-xs px-2 py-1 rounded font-bold";
+                timerInterval = setInterval(() => {
+                    timerSeconds++;
+                    let mins = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+                    let secs = (timerSeconds % 60).toString().padStart(2, '0');
+                    document.getElementById('timer').innerText = `${mins}:${secs}`;
+                }, 1000);
+            }
+        }
+
+        // Sélecteur d'équipe
+        function setTeam(team) {
+            currentTeam = team;
+            const myBtn = document.getElementById('btn-team-my');
+            const oppBtn = document.getElementById('btn-team-opp');
+            if (team === 'my') {
+                myBtn.className = "bg-amber-600 text-white text-xs px-3 py-1 rounded-md font-bold transition";
+                oppBtn.className = "bg-slate-800 text-slate-400 text-xs px-3 py-1 rounded-md font-bold transition";
+            } else {
+                myBtn.className = "bg-slate-800 text-slate-400 text-xs px-3 py-1 rounded-md font-bold transition";
+                oppBtn.className = "bg-sky-600 text-white text-xs px-3 py-1 rounded-md font-bold transition";
+            }
+        }
+
+        function recordAction(catIndex, label) {
+            history.push({ catIndex, label, team: currentTeam, time: timerSeconds });
+            document.getElementById('seq-count').innerText = `${history.length} action(s)`;
+            if (navigator.vibrate) navigator.vibrate(30);
+            drawGrid();
+        }
+
+        function addStat(type) {
+            stats[type]++;
+            document.getElementById(`stat-${type}`).innerText = stats[type];
+            if (navigator.vibrate) navigator.vibrate(40);
+        }
+
+        // Bouton Correctif / Annuler
+        function undo() {
+            if (history.length > 0) {
+                history.pop();
+                document.getElementById('seq-count').innerText = `${history.length} action(s)`;
+                drawGrid();
+            }
+        }
+
+        function resetAll() {
+            if (confirm("Réinitialiser toute la séquence ?")) {
+                history = [];
+                stats = { grattes: 0, penalites: 0, fautes: 0, franchissements: 0 };
+                Object.keys(stats).forEach(k => document.getElementById(`stat-${k}`).innerText = 0);
+                document.getElementById('seq-count').innerText = "0 action(s)";
+                timerSeconds = 0;
+                document.getElementById('timer').innerText = "00:00";
+                if (timerRunning) toggleTimer();
+                drawGrid();
+            }
+        }
+
+        function drawGrid() {
+            const w = canvas.width;
+            const h = canvas.height;
+            if (w === 0 || h === 0) return;
+
+            const paddingLeft = 90;
+            const paddingTop = 20;
+            const paddingBottom = 20;
+            const availableHeight = h - paddingTop - paddingBottom;
+            const rowHeight = availableHeight / categories.length;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Quadrillage & Libellés
+            categories.forEach((cat, idx) => {
+                const y = paddingTop + idx * rowHeight + rowHeight / 2;
+
+                ctx.beginPath();
+                ctx.setLineDash([]);
+                ctx.strokeStyle = (idx === 4 || idx === 8 || idx === 11) ? '#475569' : '#1e293b';
+                ctx.lineWidth = (idx === 4 || idx === 8 || idx === 11) ? 2 : 1;
+                ctx.moveTo(paddingLeft, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+
+                ctx.fillStyle = (idx >= 4 && idx <= 7) ? '#fbbf24' : (idx >= 8 && idx <= 10) ? '#34d399' : '#94a3b8';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(cat, paddingLeft - 6, y);
+            });
+
+            // Axe vertical
+            ctx.beginPath();
+            ctx.setLineDash([]);
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.moveTo(paddingLeft, 0);
+            ctx.lineTo(paddingLeft, h);
+            ctx.stroke();
+
+            if (history.length === 0) return;
+
+            // Tracer la chronophotographie segment par segment
+            const availableWidth = w - paddingLeft - 30;
+            const stepX = history.length > 1 ? availableWidth / (history.length - 1) : 0;
+
+            const points = history.map((item, idx) => {
+                const x = history.length === 1 ? paddingLeft + availableWidth / 2 : paddingLeft + 15 + idx * stepX;
+                const y = paddingTop + item.catIndex * rowHeight + rowHeight / 2;
+                return { x, y, team: item.team };
+            });
+
+            for (let i = 0; i < points.length - 1; i++) {
+                const pt1 = points[i];
+                const pt2 = points[i + 1];
+
+                ctx.beginPath();
+                ctx.lineWidth = 2;
+
+                if (pt2.team === 'my') {
+                    ctx.strokeStyle = '#f59e0b'; // Orange continu
+                    ctx.setLineDash([]);
+                } else {
+                    ctx.strokeStyle = '#38bdf8'; // Bleu pointillé
+                    ctx.setLineDash([4, 4]);
+                }
+
+                ctx.moveTo(pt1.x, pt1.y);
+                ctx.lineTo(pt2.x, pt2.y);
+                ctx.stroke();
+            }
+
+            // Dessiner les points
+            points.forEach((pt, idx) => {
+                ctx.beginPath();
+                ctx.setLineDash([]);
+                ctx.arc(pt.x, pt.y, 4.5, 0, Math.PI * 2);
+                ctx.fillStyle = pt.team === 'my' ? '#f59e0b' : '#38bdf8';
+                ctx.fill();
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            });
+        }
+
+        // Export PDF
+        async function exportPDF() {
+            const { jsPDF } = window.jspdf;
+            const element = document.getElementById('export-container');
+
+            const canvasImage = await html2canvas(element, { scale: 2 });
+            const imgData = canvasImage.toDataURL('image/png');
+
+            const pdf = new jsPDF('landscape', 'mm', 'a4');
+            const imgWidth = 280;
+            const imgHeight = (canvasImage.height * imgWidth) / canvasImage.width;
+
+            pdf.setFontSize(14);
+            pdf.text("Rapport Séquence Rugby - Grille Deleplace", 10, 12);
+            pdf.addImage(imgData, 'PNG', 10, 18, imgWidth, imgHeight);
+            pdf.save(`sequence_rugby_${new Date().toISOString().slice(0,10)}.pdf`);
+        }
+
+        window.onload = function() {
+            resizeCanvas();
+            drawGrid();
+        };
+    </script>
+</body>
+</html>
